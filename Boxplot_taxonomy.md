@@ -22,10 +22,12 @@ library(tidyverse)
     ## x dplyr::lag()    masks stats::lag()
 
 Next we are going to load our data. The relative abundance of the
-different taxa were previously calculated. **check.names** prevent that
-R would change your column names. Use **str()** to get information about
-your data frame. In this case we have 17 rows and 8 columns. **str()**
-also show you what kind of variable you have.
+different taxa were previously calculated.
+
+**check.names** prevent that R would change your column names. Use
+**str()** to get information about your data frame. In this case we have
+17 rows and 8 columns. **str()** also show you what kind of variable you
+have.
 
 ``` r
 df <- read.table("mock_tax.txt",
@@ -45,6 +47,9 @@ str(df)
     ##  $ Antibiotic: num  7.1 2.4 4.12 8.9 4.7 ...
     ##  $ Antibiotic: num  3.43 8 4.82 5.91 1.89 ...
     ##  $ Antibiotic: num  8.29 9.64 3.23 8.27 6.26 ...
+
+Let´s check if the data was imported correctly by summing the abundance
+of every taxa in each sample. The result must be 100 per column.
 
 ``` r
 colSums(df[3:8])
@@ -74,6 +79,11 @@ str(df_long)
 
 Now we have 102 rows and 4 columns.
 
+After, we calculate the mean relative abundance of every Family among
+the treatments. We can use **group\_by()** to establish groups of data.
+Then those groups would be summarise with a new variable that we create.
+In this case the new variable is **relative\_abundance**
+
 ``` r
 relative_abundace <- df_long %>%
     group_by(Family, Treatment) %>%
@@ -82,53 +92,75 @@ relative_abundace <- df_long %>%
 
     ## `summarise()` regrouping output by 'Family' (override with `.groups` argument)
 
+``` r
+relative_abundace
+```
+
+    ## # A tibble: 16 x 3
+    ## # Groups:   Family [8]
+    ##    Family             Treatment  relative_abundance
+    ##    <fct>              <chr>                   <dbl>
+    ##  1 Bacteroidaceae     Antibiotic              12.1 
+    ##  2 Bacteroidaceae     Control                  8.15
+    ##  3 Bifidobacteriaceae Antibiotic              13.3 
+    ##  4 Bifidobacteriaceae Control                 15.0 
+    ##  5 Clostridiaceae     Antibiotic               4.05
+    ##  6 Clostridiaceae     Control                  6.00
+    ##  7 Helicobacteraceae  Antibiotic               4.80
+    ##  8 Helicobacteraceae  Control                  4.51
+    ##  9 Lactobacillaceae   Antibiotic              16.7 
+    ## 10 Lactobacillaceae   Control                 13.0 
+    ## 11 Prevotellaceae     Antibiotic               6.27
+    ## 12 Prevotellaceae     Control                  4.79
+    ## 13 Streptococcaceae   Antibiotic              37.6 
+    ## 14 Streptococcaceae   Control                 45.1 
+    ## 15 Veillonellaceae    Antibiotic               5.18
+    ## 16 Veillonellaceae    Control                  3.42
+
 ## Ploting
 
-``` r
-sort.class <- relative_abundace %>% 
-  count(Family, wt = relative_abundance) %>%
-  arrange(desc(n)) %>%
-  pull(Family) 
+Finally, we can plot our data. Lets try 3 different versions of barplot.
+In all of them we have to use **geom\_bar(stat = ‘identity’)**, because
+we do not want any statistical transformation of our data.
 
-relative_abundace %>%
-count(Family, wt =relative_abundance)
-```
-
-    ## # A tibble: 8 x 2
-    ## # Groups:   Family [8]
-    ##   Family                 n
-    ##   <fct>              <dbl>
-    ## 1 Bacteroidaceae     20.3 
-    ## 2 Bifidobacteriaceae 28.3 
-    ## 3 Clostridiaceae     10.1 
-    ## 4 Helicobacteraceae   9.31
-    ## 5 Lactobacillaceae   29.7 
-    ## 6 Prevotellaceae     11.1 
-    ## 7 Streptococcaceae   82.8 
-    ## 8 Veillonellaceae     8.59
+### 1\) Normal stack barplot.
 
 ``` r
-relative_abundace %>%
-  mutate(Family = factor(Family, levels = sort.class)) %>%
-  ggplot(aes(x = Treatment, 
-             y = relative_abundance, 
-             fill = Family)) +
-  geom_bar(stat = 'identity',
-           position = position_dodge()) +
-  scale_fill_brewer(palette = "Dark2") +
-  facet_wrap(~Treatment) +
-  theme_minimal()
-```
-
-![](Boxplot_taxonomy_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
-
-``` r
-col_list <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00')
-
 relative_abundace %>%
   ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
   geom_bar(stat = 'identity') +
-  scale_fill_manual(values = col_list)
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  theme_classic()
 ```
 
-![](Boxplot_taxonomy_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
+![](Boxplot_taxonomy_files/figure-gfm/Normal%20plot-1.png)<!-- -->
+
+### 2\) Unstack bars using **position = position\_dodge()**.
+
+``` r
+relative_abundace %>%
+  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+  geom_bar(stat = 'identity',
+           position = position_dodge()) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  theme_classic()
+```
+
+![](Boxplot_taxonomy_files/figure-gfm/Unstack%20bars-1.png)<!-- -->
+
+### 3\) An independent plot for every Family using **facet\_wrap(\~Family)**.
+
+``` r
+relative_abundace %>%
+  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+  geom_bar(stat = 'identity',
+           position = position_dodge()) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_wrap(~Family) +
+  theme_bw()
+```
+
+![](Boxplot_taxonomy_files/figure-gfm/facet%20plot-1.png)<!-- -->

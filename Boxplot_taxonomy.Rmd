@@ -11,7 +11,9 @@ library(tidyverse)
 ```
 
 Next we are going to load our data. The relative abundance of the different taxa 
-were previously calculated. **check.names** prevent that R would change
+were previously calculated. 
+
+**check.names** prevent that R would change
 your column names. Use **str()** to get information about your data frame. In this case
 we have 17 rows and 8 columns. **str()** also show you what kind of variable you have.
 ```{r load your data}
@@ -23,10 +25,17 @@ df <- read.table("mock_tax.txt",
 
 str(df)
 
-
-colSums(df[3:8])
-
 ```
+Let´s check if the data was imported correctly by summing the abundance of every 
+taxa in each sample. The result must be 100 per column.
+
+```{r}
+colSums(df[3:8])
+```
+
+
+
+
 Next we transform our df to a longer format as it is easier to use with **ggplot**.
 We create two new variables **Treatment** and **Abundance**. Treatment would receive all 
 the column names and Abundance all the values.
@@ -40,45 +49,54 @@ str(df_long)
 ```
 Now we have 102 rows and 4 columns.
 
-
+After, we calculate the mean relative abundance of every Family among the treatments.
+We can use **group_by()** to establish groups of data. Then those groups would be summarise
+with a new variable that we create. In this case the new variable is **relative_abundance**
 ```{r }
 relative_abundace <- df_long %>%
     group_by(Family, Treatment) %>%
     summarise(relative_abundance = sum(Abundance)/3)
-  
+
+relative_abundace
 ```
 
 ## Ploting
+Finally, we can plot our data. Lets try 3 different versions of barplot. In all 
+of them we have to use **geom_bar(stat = 'identity')**, because we do not want any 
+statistical transformation of our data.
 
-```{r }
-sort.class <- relative_abundace %>% 
-  count(Family, wt = relative_abundance) %>%
-  arrange(desc(n)) %>%
-  pull(Family) 
+### 1) Normal stack barplot.
 
-relative_abundace %>%
-count(Family, wt =relative_abundance)
-
-
-
-
-relative_abundace %>%
-  mutate(Family = factor(Family, levels = sort.class)) %>%
-  ggplot(aes(x = Treatment, 
-             y = relative_abundance, 
-             fill = Family)) +
-  geom_bar(stat = 'identity',
-           position = position_dodge()) +
-  scale_fill_brewer(palette = "Dark2") +
-  facet_wrap(~Treatment) +
-  theme_minimal()
-
-
-col_list <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00')
-
+```{r Normal plot}
 relative_abundace %>%
   ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
   geom_bar(stat = 'identity') +
-  scale_fill_manual(values = col_list)
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  theme_classic()
+```
+
+### 2) Unstack bars using **position = position_dodge()**.
+```{r Unstack bars}
+relative_abundace %>%
+  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+  geom_bar(stat = 'identity',
+           position = position_dodge()) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  theme_classic()
+```
+
+### 3) An independent plot for every Family using **facet_wrap(~Family)**.
+```{r facet plot}
+relative_abundace %>%
+  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+  geom_bar(stat = 'identity',
+           position = position_dodge()) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_wrap(~Family) +
+  theme_bw()
+
 ```
 
