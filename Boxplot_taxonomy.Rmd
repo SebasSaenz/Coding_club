@@ -1,0 +1,84 @@
+---
+title: "Stack Barplot for taxonomy"
+author: "Sebastián Sáenz"
+date: "30/10/2020"
+output: github_document
+---
+We are going to use **ggplot** to create our barplot. Load the library **tidyverse** 
+or install it in case you have not done it before.
+```{r, warning=FALSE}
+library(tidyverse)
+```
+
+Next we are going to load our data. The relative abundance of the different taxa 
+were previously calculated. **check.names** prevent that R would change
+your column names. Use **str()** to get information about your data frame. In this case
+we have 17 rows and 8 columns. **str()** also show you what kind of variable you have.
+```{r load your data}
+
+df <- read.table("mock_tax.txt",
+                 header = TRUE,
+                 sep = "\t",
+                 check.names = FALSE)
+
+str(df)
+
+
+colSums(df[3:8])
+
+```
+Next we transform our df to a longer format as it is easier to use with **ggplot**.
+We create two new variables **Treatment** and **Abundance**. Treatment would receive all 
+the column names and Abundance all the values.
+
+```{r transform df}
+df_long <- pivot_longer(df, cols = c(3:4),
+             names_to = "Treatment",
+             values_to ="Abundance")
+
+str(df_long)
+```
+Now we have 102 rows and 4 columns.
+
+
+```{r }
+relative_abundace <- df_long %>%
+    group_by(Family, Treatment) %>%
+    summarise(relative_abundance = sum(Abundance)/3)
+  
+```
+
+## Ploting
+
+```{r }
+sort.class <- relative_abundace %>% 
+  count(Family, wt = relative_abundance) %>%
+  arrange(desc(n)) %>%
+  pull(Family) 
+
+relative_abundace %>%
+count(Family, wt =relative_abundance)
+
+
+
+
+relative_abundace %>%
+  mutate(Family = factor(Family, levels = sort.class)) %>%
+  ggplot(aes(x = Treatment, 
+             y = relative_abundance, 
+             fill = Family)) +
+  geom_bar(stat = 'identity',
+           position = position_dodge()) +
+  scale_fill_brewer(palette = "Dark2") +
+  facet_wrap(~Treatment) +
+  theme_minimal()
+
+
+col_list <- c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00')
+
+relative_abundace %>%
+  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+  geom_bar(stat = 'identity') +
+  scale_fill_manual(values = col_list)
+```
+
