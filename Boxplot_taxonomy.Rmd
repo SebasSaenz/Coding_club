@@ -1,7 +1,7 @@
 ---
 title: "Stack Barplot for taxonomy"
 author: "Sebastián Sáenz"
-date: "30/10/2020"
+date: "17/11/2020"
 output: github_document
 ---
 We are going to use **ggplot** to create our barplot. Load the library **tidyverse** 
@@ -10,93 +10,155 @@ or install it in case you have not done it before.
 library(tidyverse)
 ```
 
-Next we are going to load our data. The relative abundance of the different taxa 
-were previously calculated. 
+Load the data files. The file `mock_tax.txt` containst the taxonomic annotation and `meta_tax.txt` contains the 
+metadata of the samples.
 
-**check.names** prevent that R would change
-your column names. Use **str()** to get information about your data frame. In this case
-we have 17 rows and 8 columns. **str()** also show you what kind of variable you have.
+`check.names` prevent that R would change your column names. Use `str()` to get information about your data files. 
+In this case we have 17 rows and 8 columns in the `mock_tax.txt` . `str()` also show you what kind of variables you have.
 ```{r load your data}
 
-df <- read.table("mock_tax.txt",
+taxonomy_df <- read.table("mock_tax.txt",
                  header = TRUE,
                  sep = "\t",
                  check.names = FALSE)
 
-str(df)
+meta_df <- read.table("meta_tax.txt",
+                      header = TRUE,
+                      sep = "\t",
+                      check.names = FALSE)
+
+
+str(taxonomy_df)
+
+str(meta_df)
 
 ```
-Let´s check if the data was imported correctly by summing the abundance of every 
-taxa in each sample. The result must be 100 per column.
 
+
+
+Next, Calculate the relative abundance using a function.
 ```{r}
-colSums(df[3:8])
+tax_rel_abu <- apply(taxonomy_df[3:8], 2, function(x){(x/sum(x))*100})
 ```
 
 
+Let´s check if the data was transformed correctly by summing the abundance of every 
+taxa in each sample. The result must be 100 per column.
+```{r}
+colSums(tax_rel_abu)
+```
 
-
-Next we transform our df to a longer format as it is easier to use with **ggplot**.
-We create two new variables **Treatment** and **Abundance**. Treatment would receive all 
-the column names and Abundance all the values.
-
+The new df **tax_rel_abu** only contains the relative abundances. The taxonomic data should be merge with this file.
 ```{r transform df}
-df_long <- pivot_longer(df, cols = c(3:4),
-             names_to = "Treatment",
+rel_abu_tax <- cbind(taxonomy_df[1:2], tax_rel_abu)
+
+```
+Check the new df **rel_abu_tax**
+
+
+
+Following, transform the df to a longer format as it is easier to use with **ggplot**.
+We create two new variables **Treatment** and **Abundance**. Treatment would receive all 
+the column names and Abundance all the values. `head()` would show you the first rows of your df.
+```{r}
+rel_df_long <- pivot_longer(rel_abu_tax, cols = c(3:8),
+             names_to = "Sample",
              values_to ="Abundance")
 
-str(df_long)
+head(rel_df_long)
 ```
-Now we have 102 rows and 4 columns.
+
+
+After, use the metadatata `meta_df` to add information about your samples to our taxonomy df
+
+```{r}
+full_rel_abu <- full_join(rel_df_long, meta_df, by = "Sample")
+
+head(full_rel_abu)
+```
+
+
+
+
+Now we have 102 rows and 5 columns, including metadata about treatment.
 
 After, we calculate the mean relative abundance of every Family among the treatments.
-We can use **group_by()** to establish groups of data. Then those groups would be summarise
-with a new variable that we create. In this case the new variable is **relative_abundance**
+We can use `group_by()` to establish groups of data. Then those groups would be summarise
+with a new variable that we create. In this case the new variable is **relative_abundance**. You can create several new variables to describe your samples. Lets add the standard deviaton of the abundances `sd = sd(Abundance)` 
 ```{r }
-relative_abundace <- df_long %>%
+mean_relative_abundace <- full_rel_abu %>%
     group_by(Family, Treatment) %>%
-    summarise(relative_abundance = sum(Abundance)/3)
-
-relative_abundace
+    summarise(mean_rel = sum(Abundance)/3,
+              sd = sd(Abundance))
 ```
 
-## Ploting
+## Plotting
+
 Finally, we can plot our data. Lets try 3 different versions of barplot. In all 
-of them we have to use **geom_bar(stat = 'identity')**, because we do not want any 
+of them we have to use `geom_bar(stat = 'identity')`, because we do not want any 
 statistical transformation of our data.
 
-### 1) Normal stack barplot.
+### 1a) Normal stack barplot, automatic colors
 
 ```{r Normal plot}
-relative_abundace %>%
-  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+mean_relative_abundace %>%
+  ggplot(aes(x = Treatment, 
+             y = mean_rel, 
+             fill = Family)) +
   geom_bar(stat = 'identity') +
-  ylab("Relative abundance (%)") +
-  xlab("") +
+  labs(x = "", y = "Relative abundance (%)") +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_classic()
+
+```
+
+### 1b) Stack barplot, add colors manually
+
+You can get differetn palletes codes or color codes from [ColorBrewer](https://colorbrewer2.org/#type=sequential&scheme=BuGn&n=3)
+```{r}
+col_list <- c('#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf','#e6f598','#abdda4','#66c2a5','#3288bd')
+
+mean_relative_abundace %>%
+  ggplot(aes(x = Treatment, 
+             y = mean_rel, 
+             fill = Family)) +
+  geom_bar(stat = 'identity')+
+  labs(x = "", y = "Relative abundance (%)") +
+  scale_fill_manual(values = col_list) +
+  scale_y_continuous(expand = c(0, 0)) +
   theme_classic()
 ```
 
-### 2) Unstack bars using **position = position_dodge()**.
+
+### 2) Unstack bars using `position = position_dodge()`.
+
+You can use the standar deviation with `geom_errorbar()`
 ```{r Unstack bars}
-relative_abundace %>%
-  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+mean_relative_abundace %>%
+  ggplot(aes(x = Treatment, y = mean_rel, fill = Family)) +
   geom_bar(stat = 'identity',
            position = position_dodge()) +
+  geom_errorbar(aes(ymin = mean_rel-sd, ymax = mean_rel+sd), width=.2,
+                 position=position_dodge(.9)) +
   ylab("Relative abundance (%)") +
   xlab("") +
+  scale_y_continuous(expand = c(0,0)) +
   theme_classic()
 ```
 
-### 3) An independent plot for every Family using **facet_wrap(~Family)**.
+### 3) An independent plot for every Family using `facet_wrap(~Family)`.
 ```{r facet plot}
-relative_abundace %>%
-  ggplot(aes(x = Treatment, y = relative_abundance, fill = Family)) +
+mean_relative_abundace %>%
+  ggplot(aes(x = Treatment, y = mean_rel, fill = Family)) +
   geom_bar(stat = 'identity',
            position = position_dodge()) +
+  geom_errorbar(aes(ymin=mean_rel-sd, ymax=mean_rel+sd), width=.2,
+                 position=position_dodge(.9)) +
   ylab("Relative abundance (%)") +
   xlab("") +
   facet_wrap(~Family) +
-  theme_bw()
+  scale_y_continuous(expand = c(0,0)) +
+  theme_classic()
 
 ```
 
